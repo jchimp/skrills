@@ -4,7 +4,6 @@ Self-hosted safety scanner for AI agent **skills** and **system prompts**.
 Paste a SKILL.md or prompt → get a graded report on prompt injection,
 tool-poisoning, secrets, and excessive-agency risk.
 
-> v1: paste-only, no auth, single Docker container.
 
 ## Quick start
 
