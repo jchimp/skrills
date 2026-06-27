@@ -1,0 +1,57 @@
+<div class="accordion" id="eduPanel">
+  <div class="accordion-item">
+    <h2 class="accordion-header"><button class="accordion-button collapsed" type="button"
+      data-bs-toggle="collapse" data-bs-target="#edu1">Prompt injection</button></h2>
+    <div id="edu1" class="accordion-collapse collapse" data-bs-parent="#eduPanel">
+      <div class="accordion-body small">
+        Attacker text overrides system instructions ("ignore previous instructions",
+        DAN-style jailbreaks, role overrides). Mitigation: clearly delimit untrusted
+        input, treat skill content as untrusted, and refuse to disclose system prompts.
+      </div>
+    </div>
+  </div>
+  <div class="accordion-item">
+    <h2 class="accordion-header"><button class="accordion-button collapsed" type="button"
+      data-bs-toggle="collapse" data-bs-target="#edu2">Indirect injection</button></h2>
+    <div id="edu2" class="accordion-collapse collapse" data-bs-parent="#eduPanel">
+      <div class="accordion-body small">
+        Instructions embedded in knowledge files (HTML comments, zero-width chars,
+        chat-template separators) that the human reviewer can't see but the LLM
+        executes. Strip non-printable Unicode and reject hidden directives.
+      </div>
+    </div>
+  </div>
+  <div class="accordion-item">
+    <h2 class="accordion-header"><button class="accordion-button collapsed" type="button"
+      data-bs-toggle="collapse" data-bs-target="#edu3">Tool poisoning</button></h2>
+    <div id="edu3" class="accordion-collapse collapse" data-bs-parent="#eduPanel">
+      <div class="accordion-body small">
+        Skill defines tools with dangerous primitives (shell, raw SQL, eval) or
+        wildcard scopes. Use narrowly-scoped tools, parameterized queries,
+        allowlists, and least-privilege credentials.
+      </div>
+    </div>
+  </div>
+  <div class="accordion-item">
+    <h2 class="accordion-header"><button class="accordion-button collapsed" type="button"
+      data-bs-toggle="collapse" data-bs-target="#edu4">Excessive agency</button></h2>
+    <div id="edu4" class="accordion-collapse collapse" data-bs-parent="#eduPanel">
+      <div class="accordion-body small">
+        Skill grants the agent power to take irreversible or high-impact actions
+        (payments, deletes, sends) without confirmation. Require human-in-the-loop
+        for state-changing operations and rate-limit external calls.
+      </div>
+    </div>
+  </div>
+  <div class="accordion-item">
+    <h2 class="accordion-header"><button class="accordion-button collapsed" type="button"
+      data-bs-toggle="collapse" data-bs-target="#edu5">Secret leakage</button></h2>
+    <div id="edu5" class="accordion-collapse collapse" data-bs-parent="#eduPanel">
+      <div class="accordion-body small">
+        API keys, tokens, or passwords inlined in skill content end up in logs,
+        backups, and prompt history. Rotate immediately and reference secrets
+        via environment variables or a vault.
+      </div>
+    </div>
+  </div>
+</div>

@@ -1,0 +1,6 @@
+/* Skrills — small overrides on top of Bootstrap */
+body { font-size: 0.95rem; }
+.card { border: 0; }
+textarea.form-control { font-size: 0.85rem; line-height: 1.4; }
+pre code { white-space: pre-wrap; word-break: break-all; }
+.navbar-brand { letter-spacing: 0.5px; }

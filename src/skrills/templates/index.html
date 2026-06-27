@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Skrills · Scan a skill{% endblock %}
+
+{% block content %}
+<div class="row g-4">
+  <div class="col-lg-8">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h5 class="card-title mb-3">Scan a skill or system prompt</h5>
+        <form method="post" action="/scan">
+          <div class="mb-3">
+            <textarea name="content" class="form-control font-monospace" rows="14"
+                      placeholder="Paste your SKILL.md, system prompt, or agent instructions here..."
+                      required maxlength="200000"></textarea>
+            <div class="form-text">Max 200 KB. No file upload in v1.</div>
+          </div>
+
+          <div class="row g-2 mb-3">
+            <div class="col-md-6">
+              <h6 class="text-muted mb-2">Scanners</h6>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="enable_heuristics" id="s_heuristics" checked>
+                <label class="form-check-label" for="s_heuristics">Heuristics (OWASP rule pack)</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="enable_gitleaks" id="s_gitleaks" checked>
+                <label class="form-check-label" for="s_gitleaks">Gitleaks (secrets)</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="enable_llm_guard" id="s_llmguard" checked>
+                <label class="form-check-label" for="s_llmguard">LLM Guard (prompt injection ML)</label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="enable_garak" id="s_garak">
+                <label class="form-check-label" for="s_garak">Garak sidecar <span class="badge text-bg-secondary">optional</span></label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="enable_snyk" id="s_snyk" disabled>
+                <label class="form-check-label text-muted" for="s_snyk">Snyk Labs <span class="badge text-bg-light">stubbed</span></label>
+              </div>
+            </div>
+            <div class="col-md-6">
+              <h6 class="text-muted mb-2">Options</h6>
+              <div class="form-check form-switch">
+                <input class="form-check-input" type="checkbox" name="ephemeral" id="o_ephemeral"
+                       {% if ephemeral_default %}checked{% endif %}>
+                <label class="form-check-label" for="o_ephemeral">
+                  Ephemeral (do not store scan in DB)
+                </label>
+              </div>
+              <small class="text-muted d-block mt-2">
+                Ephemeral mode skips persistence — useful for sensitive prompts.
+                Reports won't be downloadable later via URL.
+              </small>
+            </div>
+          </div>
+
+          <button type="submit" class="btn btn-warning fw-semibold">
+            Run scan
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <div class="col-lg-4">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        <h6 class="card-title mb-3">Recent scans</h6>
+        {% if recent %}
+        <ul class="list-group list-group-flush">
+          {% for s in recent %}
+          <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+            <a href="/scan/{{ s.id }}" class="text-decoration-none">
+              <span class="font-monospace small">{{ s.id }}</span>
+              <span class="text-muted small d-block">{{ s.created_at.strftime("%Y-%m-%d %H:%M UTC") }}</span>
+            </a>
+            <span class="badge {% if s.score >= 80 %}text-bg-success{% elif s.score >= 50 %}text-bg-warning{% else %}text-bg-danger{% endif %}">
+              {{ s.score }}
+            </span>
+          </li>
+          {% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-muted small mb-0">No scans yet.</p>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="card shadow-sm mt-3">
+      <div class="card-body">
+        <h6 class="card-title">What Skrills checks</h6>
+        <ul class="small text-muted mb-0">
+          <li>Prompt injection &amp; jailbreak phrases</li>
+          <li>Hidden / zero-width injection</li>
+          <li>Token-smuggling separators</li>
+          <li>Tool-poisoning &amp; excessive agency</li>
+          <li>Secrets in skill content</li>
+          <li>Markdown exfiltration vectors</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Skrills · Scan {{ scan.id }}{% endblock %}
+
+{% macro sev_badge(sev) -%}
+  {% set cls = {'critical':'text-bg-danger','high':'text-bg-warning','medium':'text-bg-info','low':'text-bg-secondary','info':'text-bg-light'}[sev] %}
+  <span class="badge {{ cls }} text-uppercase">{{ sev }}</span>
+{%- endmacro %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3">
+  <div>
+    <h4 class="mb-1">Scan results
+      <span class="font-monospace text-muted small">{{ scan.id }}</span>
+    </h4>
+    <div class="text-muted small">
+      {{ scan.created_at.strftime("%Y-%m-%d %H:%M UTC") }} ·
+      {{ scan.input_size }} bytes · hash <code>{{ scan.input_hash }}</code>
+      {% if scan.ephemeral %}· <span class="badge text-bg-dark">ephemeral</span>{% endif %}
+    </div>
+  </div>
+  <div>
+    {% if not scan.ephemeral %}
+      <a class="btn btn-sm btn-outline-secondary" href="/scan/{{ scan.id }}/report.json">JSON</a>
+      <a class="btn btn-sm btn-outline-secondary" href="/scan/{{ scan.id }}/report.html">HTML</a>
+    {% endif %}
+    <a class="btn btn-sm btn-warning" href="/">New scan</a>
+  </div>
+</div>
+
+<div class="row g-3 mb-4">
+  <div class="col-md-3">
+    <div class="card text-center shadow-sm h-100">
+      <div class="card-body">
+        <div class="display-4 fw-bold
+          {% if scan.score >= 80 %}text-success{% elif scan.score >= 50 %}text-warning{% else %}text-danger{% endif %}">
+          {{ scan.score }}
+        </div>
+        <div class="text-muted small">Safety score (100 = clean)</div>
+      </div>
+    </div>
+  </div>
+  <div class="col-md-9">
+    <div class="card shadow-sm h-100">
+      <div class="card-body">
+        <h6 class="text-muted mb-2">Severity breakdown</h6>
+        <div class="d-flex flex-wrap gap-3">
+          {% for sev in ['critical','high','medium','low','info'] %}
+            <div>
+              {{ sev_badge(sev) }}
+              <span class="ms-1 fw-semibold">{{ scan.severity_counts[sev] }}</span>
+            </div>
+          {% endfor %}
+        </div>
+        <hr>
+        <h6 class="text-muted mb-2">Scanners</h6>
+        <ul class="list-unstyled mb-0 small">
+          {% for s in scan.scanners %}
+            <li>
+              {% if s.ok %}<span class="text-success">●</span>{% else %}<span class="text-danger">●</span>{% endif %}
+              <strong>{{ s.scanner }}</strong>
+              <span class="text-muted">— {{ s.findings|length }} finding(s), {{ s.duration_ms }} ms</span>
+              {% if s.error %}<span class="text-danger">— {{ s.error }}</span>{% endif %}
+            </li>
+          {% endfor %}
+        </ul>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="card shadow-sm mb-4">
+  <div class="card-body">
+    <h5 class="card-title">Findings</h5>
+    {% if scan.findings %}
+      <div class="table-responsive">
+        <table class="table table-sm align-middle">
+          <thead>
+            <tr>
+              <th style="width:90px">Severity</th>
+              <th>Title</th>
+              <th>Category</th>
+              <th>Rule</th>
+              <th>Line</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for f in scan.findings %}
+            <tr>
+              <td>{{ sev_badge(f.severity.value) }}</td>
+              <td>
+                <div class="fw-semibold">{{ f.title }}</div>
+                <div class="small text-muted">{{ f.description }}</div>
+                {% if f.evidence %}
+                  <pre class="bg-light p-2 mt-1 mb-0 small text-break"><code>{{ f.evidence }}</code></pre>
+                {% endif %}
+                {% if f.remediation %}
+                  <div class="small mt-1"><strong>Fix:</strong> {{ f.remediation }}</div>
+                {% endif %}
+              </td>
+              <td><span class="badge text-bg-light">{{ f.category }}</span></td>
+              <td><code class="small">{{ f.rule_id }}</code><br><span class="text-muted small">{{ f.scanner }}</span></td>
+              <td>{{ f.line or "—" }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% else %}
+      <p class="text-success mb-0">No findings. Skill looks clean against the configured scanners.</p>
+    {% endif %}
+  </div>
+</div>
+
+<div class="card shadow-sm">
+  <div class="card-body">
+    <h5 class="card-title">Why this matters — new security vectors for agents</h5>
+    {% include "_edu.html" %}
+  </div>
+</div>
+{% endblock %}

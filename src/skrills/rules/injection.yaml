@@ -1,0 +1,115 @@
+# Skrills heuristic rule pack — prompt injection & jailbreak patterns
+# Seeded from OWASP LLM Top 10 (LLM01) and well-known jailbreak phrases.
+# Patterns are case-insensitive, multi-line.
+
+rules:
+  - id: SK-INJ-001
+    title: "Direct instruction override ('ignore previous instructions')"
+    severity: high
+    category: injection
+    pattern: "ignore\\s+(all\\s+)?(previous|prior|above|earlier)\\s+(instructions?|prompts?|directions?|rules?)"
+    description: >
+      Classic prompt-injection trigger. Attempts to override the system prompt
+      or prior context.
+    remediation: >
+      Treat any user-supplied skill content as untrusted. Wrap user input in
+      clear delimiters and instruct the model not to follow instructions inside.
+
+  - id: SK-INJ-002
+    title: "Role override ('you are now', 'act as', 'pretend to be')"
+    severity: medium
+    category: injection
+    pattern: "\\b(you\\s+are\\s+now|act\\s+as|pretend\\s+to\\s+be|roleplay\\s+as|from\\s+now\\s+on\\s+you\\s+are)\\b"
+    description: >
+      Attempts to change the model's persona or operating mode, often a
+      precursor to jailbreaks.
+
+  - id: SK-INJ-003
+    title: "DAN-style jailbreak ('Do Anything Now')"
+    severity: high
+    category: injection
+    pattern: "\\b(DAN|do\\s+anything\\s+now|developer\\s+mode|jailbroken|unfiltered\\s+mode)\\b"
+    description: >
+      References to DAN, Developer Mode, or 'jailbroken' personas.
+
+  - id: SK-INJ-004
+    title: "System prompt disclosure request"
+    severity: medium
+    category: injection
+    pattern: "(reveal|show|print|repeat|output|disclose)\\s+(your\\s+)?(system\\s+prompt|initial\\s+instructions|hidden\\s+instructions)"
+    description: >
+      Attempts to extract the system prompt — common reconnaissance step.
+    remediation: >
+      Refuse to reveal system instructions. Test the skill against this probe.
+
+  - id: SK-INJ-005
+    title: "Guardrail bypass language"
+    severity: medium
+    category: injection
+    pattern: "\\b(without\\s+any\\s+(restrictions?|filters?|warnings?|disclaimers?)|bypass\\s+(your\\s+)?(safety|guardrails?|filters?)|no\\s+ethical\\s+(constraints?|guidelines?))\\b"
+    description: >
+      Phrases that attempt to disable safety guardrails.
+
+  - id: SK-INJ-006
+    title: "Hypothetical / fictional framing bypass"
+    severity: low
+    category: injection
+    pattern: "\\b(hypothetically|in\\s+a\\s+fictional\\s+(world|scenario|setting)|imagine\\s+(a\\s+)?(world|scenario)\\s+where|for\\s+educational\\s+purposes\\s+only)\\b"
+    description: >
+      Hypothetical framing often used to bypass refusals.
+
+  - id: SK-INJ-007
+    title: "Encoded payload (base64-looking blob)"
+    severity: medium
+    category: injection
+    pattern: "(?:[A-Za-z0-9+/]{40,}={0,2})"
+    description: >
+      Long base64-like strings can hide injection payloads or exfil data.
+    remediation: >
+      Decode and inspect any encoded blobs in the skill content.
+
+  - id: SK-INJ-008
+    title: "Indirect injection marker in knowledge file"
+    severity: high
+    category: indirect_injection
+    pattern: "<!--\\s*(system|assistant|prompt|instruction)\\s*[:=].*?-->"
+    description: >
+      HTML-comment-style injection that may be invisible in rendered Markdown
+      but parsed by the LLM.
+
+  - id: SK-INJ-009
+    title: "Hidden zero-width / control characters"
+    severity: medium
+    category: indirect_injection
+    pattern: "[\\u200b-\\u200f\\u202a-\\u202e\\u2066-\\u2069]"
+    description: >
+      Zero-width or bidirectional override characters can hide injected
+      instructions from human reviewers.
+    remediation: Strip non-printable Unicode before treating content as trusted.
+
+  - id: SK-INJ-010
+    title: "Token-smuggling separators"
+    severity: medium
+    category: injection
+    pattern: "(\\|im_start\\||\\|im_end\\||<\\|system\\|>|<\\|user\\|>|<\\|assistant\\|>|\\[INST\\]|\\[/INST\\])"
+    description: >
+      Chat-template separator tokens embedded in user/skill content can confuse
+      the model into treating attacker text as a privileged role.
+
+  - id: SK-INJ-011
+    title: "Data exfiltration via URL / image"
+    severity: high
+    category: injection
+    pattern: "!\\[.*?\\]\\(https?://[^\\s)]+\\?[^\\s)]*\\{[^}]+\\}"
+    description: >
+      Markdown image with template placeholders in the URL — classic
+      exfiltration vector where the LLM is tricked into rendering a URL that
+      leaks context to an attacker server.
+
+  - id: SK-INJ-012
+    title: "'Confidential' / 'secret' instruction marker"
+    severity: low
+    category: injection
+    pattern: "\\b(this\\s+is\\s+(top\\s+)?secret|confidential\\s+instructions?|do\\s+not\\s+tell\\s+the\\s+user)\\b"
+    description: >
+      Skills hiding instructions from users are a transparency red flag.

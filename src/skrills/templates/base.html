@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Skrills{% endblock %}</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link href="/static/css/skrills.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+  <nav class="navbar navbar-dark bg-dark mb-4">
+    <div class="container">
+      <a class="navbar-brand fw-bold" href="/">
+        <span class="text-warning">Skrills</span>
+        <small class="text-secondary fs-6 ms-2">skill &amp; prompt safety scanner</small>
+      </a>
+      <span class="text-secondary small">v{{ version }}</span>
+    </div>
+  </nav>
+
+  <main class="container pb-5">
+    {% block content %}{% endblock %}
+  </main>
+
+  <footer class="container text-center text-muted small pb-4">
+    Skrills v{{ version }} · self-hosted · no auth · for internal use
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <script src="/static/js/skrills.js"></script>
+</body>
+</html>
