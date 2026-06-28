@@ -46,6 +46,10 @@ src/skrills/
 - `SKRILLS_EPHEMERAL_DEFAULT` — `true|false` (default false)
 - `SKRILLS_GARAK_URL` — Garak sidecar URL (empty = disabled)
 - `SKRILLS_SNYK_ENABLED` — placeholder toggle (default false)
+- `SKRILLS_PUBLIC` — public-web posture (default false): no persistence/history,
+  heuristics+gitleaks only, rate limiting on, `/scan/{id}` routes return 404
+- `SKRILLS_MAX_CONTENT_BYTES` — server-side cap on pasted content (default 200000)
+- `SKRILLS_RATE_LIMIT` — per-IP rate limit, public mode only (default `10/minute`)
 
 ## How to add a scanner
 1. Create `src/skrills/scanners/<name>.py` with a class subclassing `Scanner`.

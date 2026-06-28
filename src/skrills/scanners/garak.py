@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import logging
 import os
 
 import httpx
 
 from ..models import Finding, ScannerResult, Severity
 from .base import Scanner
+
+logger = logging.getLogger(__name__)
 
 
 class GarakScanner(Scanner):
@@ -30,8 +33,13 @@ class GarakScanner(Scanner):
                 )
                 resp.raise_for_status()
                 data = resp.json()
-            except Exception as e:
-                return ScannerResult(scanner=self.name, ok=False, error=str(e))
+            except Exception:
+                logger.exception("Garak sidecar request failed")
+                return ScannerResult(
+                    scanner=self.name,
+                    ok=False,
+                    error="Garak sidecar request failed; see server logs.",
+                )
 
             findings: list[Finding] = []
             for item in data.get("findings", []):

@@ -15,6 +15,14 @@ services:
       SKRILLS_GARAK_URL: ""
       # Snyk Labs is stubbed; toggle to attempt public probe (currently no-op)
       SKRILLS_SNYK_ENABLED: "false"
+      # ---- Public-web hardening ----
+      # true => no persistence/history, heuristics+gitleaks only, rate limiting on.
+      # Terminate TLS at a reverse proxy in front of this and forward X-Forwarded-For.
+      SKRILLS_PUBLIC: "false"
+      # Server-side cap on pasted content (bytes). Body cap = this + 64 KB headroom.
+      SKRILLS_MAX_CONTENT_BYTES: "200000"
+      # Per-client rate limit (only enforced when SKRILLS_PUBLIC=true)
+      SKRILLS_RATE_LIMIT: "10/minute"
 
   # Optional: uncomment to run Garak as a sidecar. Image is large.
   # garak:

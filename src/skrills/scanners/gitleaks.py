@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import shutil
 import subprocess
 import tempfile
@@ -8,6 +9,8 @@ from pathlib import Path
 
 from ..models import Finding, ScannerResult, Severity
 from .base import Scanner
+
+logger = logging.getLogger(__name__)
 
 
 class GitleaksScanner(Scanner):
@@ -46,8 +49,13 @@ class GitleaksScanner(Scanner):
                         text=True,
                         timeout=60,
                     )
-                except (subprocess.TimeoutExpired, FileNotFoundError) as e:
-                    return ScannerResult(scanner=self.name, ok=False, error=str(e))
+                except (subprocess.TimeoutExpired, FileNotFoundError):
+                    logger.exception("gitleaks subprocess failed")
+                    return ScannerResult(
+                        scanner=self.name,
+                        ok=False,
+                        error="gitleaks failed to run; see server logs.",
+                    )
 
                 if report.exists():
                     try:

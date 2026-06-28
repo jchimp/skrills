@@ -19,10 +19,12 @@
     </div>
   </div>
   <div>
-    {% if not scan.ephemeral %}
-      <a class="btn btn-sm btn-outline-secondary" href="/scan/{{ scan.id }}/report.json">JSON</a>
-      <a class="btn btn-sm btn-outline-secondary" href="/scan/{{ scan.id }}/report.html">HTML</a>
-    {% endif %}
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-download
+            data-payload="{{ report_json_b64 }}" data-filename="skrills-{{ scan.id }}.json"
+            data-mime="application/json">JSON</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary" data-download
+            data-payload="{{ report_html_b64 }}" data-filename="skrills-{{ scan.id }}.html"
+            data-mime="text/html">HTML</button>
     <a class="btn btn-sm btn-warning" href="/">New scan</a>
   </div>
 </div>

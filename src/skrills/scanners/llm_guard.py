@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+import logging
+
 from ..models import Finding, ScannerResult, Severity
 from .base import Scanner
+
+logger = logging.getLogger(__name__)
 
 
 class LLMGuardScanner(Scanner):
@@ -15,11 +19,12 @@ class LLMGuardScanner(Scanner):
                 # Lazy import — heavy library, only load on first use
                 from llm_guard.input_scanners import PromptInjection, BanTopics, Toxicity
                 from llm_guard.input_scanners.prompt_injection import MatchType
-            except Exception as e:  # pragma: no cover
+            except Exception:  # pragma: no cover
+                logger.exception("llm-guard import failed")
                 return ScannerResult(
                     scanner=self.name,
                     ok=False,
-                    error=f"llm-guard not available: {e}",
+                    error="llm-guard not available; see server logs.",
                 )
 
             findings: list[Finding] = []
@@ -45,7 +50,8 @@ class LLMGuardScanner(Scanner):
                             ),
                         )
                     )
-            except Exception as e:
+            except Exception:
+                logger.exception("llm-guard PromptInjection scan failed")
                 findings.append(
                     Finding(
                         scanner=self.name,
@@ -53,7 +59,7 @@ class LLMGuardScanner(Scanner):
                         title="PromptInjection scanner error",
                         severity=Severity.INFO,
                         category="other",
-                        description=str(e),
+                        description="Scanner failed to run; see server logs.",
                     )
                 )
 

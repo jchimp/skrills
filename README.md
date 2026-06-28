@@ -23,14 +23,32 @@ docker compose up --build -d
 ## Outputs
 
 - Web dashboard with severity-grouped findings + remediation
-- Downloadable **JSON** report — `/scan/{id}/report.json`
-- Downloadable **HTML** report — `/scan/{id}/report.html`
+- Downloadable **JSON** / **HTML** report — buttons on the results page (generated
+  client-side; in internal mode also available at `/scan/{id}/report.{json,html}`)
 - API — `POST /api/scan` with `{"content": "..."}`
 
 ## Ephemeral mode
 
 Toggle "Ephemeral" on the scan form (or set `SKRILLS_EPHEMERAL_DEFAULT=true`)
 to skip persisting the scan to SQLite — useful for sensitive prompts.
+
+## Public deployment
+
+To expose Skrills on the open internet, set `SKRILLS_PUBLIC=true`. In this mode:
+
+- **No persistence / no history** — scans are never written to SQLite. Results are
+  shown on the page only; the recent-scans list and the `/scan/{id}` URLs are
+  disabled (return 404). Download the JSON / HTML report from the results page —
+  it's generated client-side, so it needs no stored copy.
+- **Reduced scanner set** — heuristics + gitleaks only. The heavy LLM Guard ML
+  scanner (and Garak / Snyk) are force-disabled to limit the DoS surface.
+- **Rate limiting** — `SKRILLS_RATE_LIMIT` per client IP (default `10/minute`).
+- **Body cap** — pasted content is capped server-side at `SKRILLS_MAX_CONTENT_BYTES`.
+- **Security headers** — CSP, `X-Frame-Options`, `nosniff`, `Referrer-Policy`.
+
+Run it behind a reverse proxy that terminates **TLS** and forwards
+`X-Forwarded-For` (the rate limiter keys off the first hop). The container already
+runs as a non-root user.
 
 ## Config
 
@@ -40,6 +58,9 @@ to skip persisting the scan to SQLite — useful for sensitive prompts.
 | `SKRILLS_EPHEMERAL_DEFAULT`   | `false`                  | Default state of the ephemeral toggle    |
 | `SKRILLS_GARAK_URL`           | *(unset)*                | Garak sidecar base URL                   |
 | `SKRILLS_SNYK_ENABLED`        | `false`                  | Reserved for future Snyk Labs probe      |
+| `SKRILLS_PUBLIC`              | `false`                  | Public-web posture (see above)           |
+| `SKRILLS_MAX_CONTENT_BYTES`   | `200000`                 | Server-side cap on pasted content        |
+| `SKRILLS_RATE_LIMIT`          | `10/minute`              | Per-IP rate limit (public mode only)     |
 
 ## License
 

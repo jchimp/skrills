@@ -23,13 +23,18 @@ RUN uv pip install --system -r pyproject.toml
 # Copy source
 COPY src/ ./src/
 
-# SQLite data dir
+# SQLite data dir (used in internal mode; unused when SKRILLS_PUBLIC=true)
 RUN mkdir -p /app/data
 VOLUME ["/app/data"]
 
 ENV SKRILLS_DB=/app/data/skrills.db \
     SKRILLS_HOST=0.0.0.0 \
     SKRILLS_PORT=8000
+
+# Run as an unprivileged user
+RUN useradd --create-home --uid 10001 appuser \
+    && chown -R appuser:appuser /app
+USER appuser
 
 EXPOSE 8000
 
