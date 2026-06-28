@@ -1,7 +1,7 @@
 [project]
 name = "skrills"
-version = "0.1.0"
-description = "Skill/prompt safety scanner for AI agents"
+version = "0.2.0"
+description = "Skill / prompt / repo safety scanner for AI agents"
 requires-python = ">=3.11"
 dependencies = [
     "fastapi>=0.115.0",

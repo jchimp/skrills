@@ -1,10 +1,9 @@
 # Skrills
 
-Self-hosted safety scanner for AI agent **skills** and **system prompts**.
-Paste a SKILL.md or prompt → get a graded report on prompt injection,
-tool-poisoning, secrets, and excessive-agency risk.
-
-> v1: paste-only, no auth, single Docker container.
+Self-hosted safety scanner for AI agent **skills**, **prompts**, and **repos**.
+Paste, upload a zip, or point at a public Git URL — get a graded report on
+prompt injection, tool-poisoning, secrets, excessive agency, dependency CVEs,
+and code-security issues.
 
 ## Quick start
 
@@ -13,35 +12,67 @@ docker compose up --build -d
 # open http://localhost:8088
 ```
 
-## What it runs
+## Input modes
 
-- **Heuristics** — YAML rule pack seeded from OWASP LLM Top 10 + common jailbreaks
-- **Gitleaks** — secret detection on the pasted content
-- **LLM Guard** — ML-backed prompt-injection / toxicity / banned-topic scanners
-- **Garak** *(optional sidecar)* — NVIDIA's LLM red-team probes; uncomment in `compose.yaml` and set `SKRILLS_GARAK_URL`
-- **Snyk Labs** — stubbed (no public no-auth API yet)
+- **Paste** — a SKILL.md, system prompt, or agent manifest
+- **Upload** — `.zip` / `.tar.gz` / single text file (50 MB / 5,000 files cap)
+- **Git URL** — public HTTPS clone; host allowlist (`github.com, gitlab.com, bitbucket.org` by default)
+
+## Scanners
+
+| Scanner    | What it catches                                         | Modes        |
+|------------|---------------------------------------------------------|--------------|
+| Heuristics | OWASP LLM Top 10 patterns, jailbreaks, tool-poisoning   | text + repo  |
+| Gitleaks   | Inline secrets / API keys                               | text + repo  |
+| LLM Guard  | ML prompt-injection, toxicity, banned topics            | text + repo* |
+| Semgrep    | SAST (code security) — runs in sidecar container        | repo only    |
+| Trivy      | Dependency CVEs, IaC misconfig, repo secrets            | repo only    |
+| Garak      | NVIDIA red-team probes — optional sidecar               | text + repo* |
+| Snyk Labs  | stubbed (no public no-auth API yet)                     | —            |
+
+*In repo mode, ML scanners run only on skill-like files (`SKILL.md`, `system.md`,
+`agent.md`, `claude.md`, `copilot.md`, `*.skill`, etc.).
 
 ## Outputs
 
-- Web dashboard with severity-grouped findings + remediation
-- Downloadable **JSON** report — `/scan/{id}/report.json`
-- Downloadable **HTML** report — `/scan/{id}/report.html`
-- API — `POST /api/scan` with `{"content": "..."}`
+- Web dashboard — file-tree sidebar, per-file findings, content viewer
+- **JSON** report — `/scan/{id}/report.json`
+- **HTML** report — `/scan/{id}/report.html`
+- **API** — `POST /scan/paste`, `POST /scan/upload`, `POST /scan/git`
+- **Status polling** — `GET /scan/{id}/status.json`
+
+## Re-scan
+Paste and Git scans can be re-scanned with one click (paste retains the
+content, git re-clones from the stored URL). Uploads cannot be re-scanned —
+original bytes are not retained.
 
 ## Ephemeral mode
-
-Toggle "Ephemeral" on the scan form (or set `SKRILLS_EPHEMERAL_DEFAULT=true`)
-to skip persisting the scan to SQLite — useful for sensitive prompts.
+Toggle "Ephemeral" on any tab to skip persistence — useful for sensitive prompts.
+No DB row is written; reports are not downloadable later.
 
 ## Config
 
-| Env var                       | Default                  | Purpose                                  |
-|-------------------------------|--------------------------|------------------------------------------|
-| `SKRILLS_DB`                  | `/app/data/skrills.db`   | SQLite path                              |
-| `SKRILLS_EPHEMERAL_DEFAULT`   | `false`                  | Default state of the ephemeral toggle    |
-| `SKRILLS_GARAK_URL`           | *(unset)*                | Garak sidecar base URL                   |
-| `SKRILLS_SNYK_ENABLED`        | `false`                  | Reserved for future Snyk Labs probe      |
+Environment variables.
+
+| Var                            | Default                                  | Purpose                                  |
+|--------------------------------|------------------------------------------|------------------------------------------|
+| `SKRILLS_DB`                   | `/app/data/skrills.db`                   | SQLite path                              |
+| `SKRILLS_SCRATCH`              | `/app/scratch`                           | Per-scan temp dir parent                 |
+| `SKRILLS_EPHEMERAL_DEFAULT`    | `false`                                  | Default state of the ephemeral toggle    |
+| `SKRILLS_MAX_UPLOAD_MB`        | `50`                                     | Cap on uploaded bytes                    |
+| `SKRILLS_MAX_FILE_COUNT`       | `5000`                                   | Cap on extracted/cloned file count       |
+| `SKRILLS_MAX_EXTRACTED_MB`     | `200`                                    | Cap on uncompressed size                 |
+| `SKRILLS_MAX_ZIP_RATIO`        | `100`                                    | Zip-bomb ratio guard                     |
+| `SKRILLS_GIT_CLONE_TIMEOUT`    | `60`                                     | Seconds                                  |
+| `SKRILLS_GIT_HOST_ALLOWLIST`   | `github.com,gitlab.com,bitbucket.org`    | Comma-separated allowlist                |
+| `SKRILLS_SEMGREP_URL`          | `http://semgrep:9001`                    | Semgrep sidecar base URL                 |
+| `SKRILLS_GARAK_URL`            | *(unset)*                                | Garak sidecar base URL                   |
+| `SKRILLS_SNYK_ENABLED`         | `false`                                  | Reserved for future Snyk Labs probe      |
+
+## Sidecars
+
+- **Semgrep** — always-on in `compose.yaml` (lightweight wrapper in `sidecars/semgrep/`)
+- **Garak** — commented out in `compose.yaml`; uncomment if you want red-team probes
 
 ## License
-
 Internal use.

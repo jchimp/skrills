@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}Skrills · Scanning…{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-6">
+    <div class="card shadow-sm border-warning">
+      <div class="card-body text-center py-5">
+        {% if scan.status.value == "failed" %}
+          <div class="display-1 text-danger mb-2">⚠️</div>
+          <h4 class="mb-2">Scan failed</h4>
+          <pre class="text-start small bg-light p-2 mt-3 mb-3">{{ scan.error or "unknown error" }}</pre>
+          <a class="btn btn-warning" href="/">Back</a>
+        {% else %}
+          <div class="spinner-border text-warning mb-3" role="status" style="width:3rem;height:3rem;"></div>
+          <h4 class="mb-2">
+            {% if scan.source_type.value == "git" %}Cloning &amp; scanning…
+            {% elif scan.source_type.value == "upload" %}Extracting &amp; scanning…
+            {% else %}Scanning…{% endif %}
+          </h4>
+          <div class="text-muted small mb-3">
+            <code>{{ scan.id }}</code> · {{ scan.source_type.value }} · {{ scan.source_label }}
+          </div>
+          <div class="text-muted small">Status: <strong>{{ scan.status.value }}</strong> · this page auto-refreshes</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts_extra %}
+<script>
+  // Poll status.json; once complete, hard-reload to render results page.
+  (async function poll() {
+    try {
+      const r = await fetch("/scan/{{ scan.id }}/status.json");
+      const j = await r.json();
+      if (j.status === "complete" || j.status === "failed") {
+        window.location.reload();
+      }
+    } catch (e) {}
+    setTimeout(poll, 1500);
+  })();
+</script>
+{% endblock %}
