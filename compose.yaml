@@ -9,14 +9,37 @@ services:
       - ./data:/app/data
     environment:
       SKRILLS_DB: /app/data/skrills.db
-      # Toggle ephemeral default: if true, scans aren't persisted unless explicitly enabled per request
+      SKRILLS_SCRATCH: /app/scratch
       SKRILLS_EPHEMERAL_DEFAULT: "false"
-      # Optional Garak sidecar URL; leave empty to disable
-      SKRILLS_GARAK_URL: ""
-      # Snyk Labs is stubbed; toggle to attempt public probe (currently no-op)
-      SKRILLS_SNYK_ENABLED: "false"
 
-  # Optional: uncomment to run Garak as a sidecar. Image is large.
+      # Repo ingest limits
+      SKRILLS_MAX_UPLOAD_MB: "50"
+      SKRILLS_MAX_FILE_COUNT: "5000"
+      SKRILLS_GIT_CLONE_TIMEOUT: "60"
+      SKRILLS_GIT_HOST_ALLOWLIST: "github.com,gitlab.com,bitbucket.org"
+
+      # Sidecars
+      SKRILLS_GARAK_URL: ""
+      SKRILLS_SEMGREP_URL: "http://semgrep:9001"
+      SKRILLS_SNYK_ENABLED: "false"
+    depends_on:
+      - semgrep
+
+  semgrep:
+    image: returntocorp/semgrep:latest
+    container_name: skrills-semgrep
+    restart: unless-stopped
+    # Lightweight HTTP wrapper: a tiny FastAPI side-process in front of `semgrep scan`.
+    # See /sidecars/semgrep/ in this repo for the source.
+    command: >
+      sh -c "pip install --quiet fastapi uvicorn python-multipart &&
+             uvicorn server:app --host 0.0.0.0 --port 9001 --app-dir /srv"
+    volumes:
+      - ./sidecars/semgrep:/srv:ro
+    expose:
+      - "9001"
+
+  # Optional: Garak red-team sidecar. Image is large.
   # garak:
   #   image: ghcr.io/nvidia/garak:latest
   #   container_name: skrills-garak

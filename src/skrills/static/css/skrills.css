@@ -1,6 +1,30 @@
-/* Skrills — small overrides on top of Bootstrap */
+/* Skrills overrides on top of Bootstrap */
+:root {
+  --skrills-mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Fira Code',
+    SFMono-Regular, Consolas, monospace;
+}
+.navbar-brand, h1, h2, h3, h4, h5, h6 { font-family: var(--skrills-mono); }
 body { font-size: 0.95rem; }
 .card { border: 0; }
 textarea.form-control { font-size: 0.85rem; line-height: 1.4; }
 pre code { white-space: pre-wrap; word-break: break-all; }
 .navbar-brand { letter-spacing: 0.5px; }
+
+.file-tree {
+  max-height: 70vh;
+  overflow: auto;
+}
+.file-tree .file-link {
+  text-decoration: none;
+  color: #333;
+  border-radius: 4px;
+  border: 1px solid transparent;
+}
+.file-tree .file-link:hover {
+  background: #f6f6f6;
+}
+.file-tree .file-link.active {
+  background: #fff3cd;
+  border-color: #ffe69c;
+  font-weight: 600;
+}

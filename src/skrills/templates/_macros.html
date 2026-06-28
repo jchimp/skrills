@@ -1,0 +1,6 @@
+{# Shared template macros. #}
+
+{% macro sev_badge(sev) -%}
+  {% set cls = {'critical':'text-bg-danger','high':'text-bg-warning','medium':'text-bg-info','low':'text-bg-secondary','info':'text-bg-light'}.get(sev, 'text-bg-light') %}
+  <span class="badge {{ cls }} text-uppercase">{{ sev }}</span>
+{%- endmacro %}

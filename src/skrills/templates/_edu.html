@@ -54,4 +54,16 @@
       </div>
     </div>
   </div>
+  <div class="accordion-item">
+    <h2 class="accordion-header"><button class="accordion-button collapsed" type="button"
+      data-bs-toggle="collapse" data-bs-target="#edu6">Code / dependency risk</button></h2>
+    <div id="edu6" class="accordion-collapse collapse" data-bs-parent="#eduPanel">
+      <div class="accordion-body small">
+        Repos shipping agent skills also ship Python/JS code and dependencies.
+        Trivy catches known CVEs in <code>requirements.txt</code>, <code>package.json</code>,
+        etc. Semgrep catches dangerous patterns in the code itself (eval,
+        SQL injection sinks, hard-coded credentials).
+      </div>
+    </div>
+  </div>
 </div>
