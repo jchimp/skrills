@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% import "_macros.html" as macros %}
+{% block title %}Skrills · Rule glossary{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
+  <div>
+    <h4 class="mb-1">Heuristic rule glossary</h4>
+    <div class="text-muted small">
+      What each <code>SK-*</code> heuristic rule detects, why it matters, and when
+      it's likely a false positive. {{ catalog|length }} rules.
+    </div>
+  </div>
+  <a class="btn btn-sm btn-warning" href="/">New scan</a>
+</div>
+
+<div class="alert alert-light border small">
+  Heuristics are fast regex signals, not proof of a vulnerability. Expect false
+  positives on the noisier rules (e.g. the base64 and outbound-HTTP patterns).
+  Use the evidence + the notes below to judge each hit. External scanners
+  (semgrep, trivy, gitleaks, garak) carry their own rule IDs and are not listed here.
+</div>
+
+{# Category jump nav #}
+<div class="mb-4 small">
+  {% for key, label, rules in groups %}
+    <a class="badge text-bg-light text-decoration-none me-1" href="#cat-{{ key }}">{{ label }} ({{ rules|length }})</a>
+  {% endfor %}
+</div>
+
+{% for key, label, rules in groups %}
+<section id="cat-{{ key }}" class="mb-4">
+  <h5 class="border-bottom pb-1 mb-3">{{ label }}</h5>
+  {% for r in rules %}
+  <div id="{{ r.id }}" class="card shadow-sm mb-3">
+    <div class="card-body">
+      <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-2">
+        <h6 class="mb-0">
+          <code>{{ r.id }}</code> · {{ r.title }}
+        </h6>
+        <div>{{ macros.sev_badge(r.severity) }} <span class="badge text-bg-light">{{ r.category }}</span></div>
+      </div>
+      {% if r.description %}<p class="small mb-2">{{ r.description }}</p>{% endif %}
+      {% if r.false_positives %}
+        <p class="small mb-2"><strong>⚠ False positives:</strong> {{ r.false_positives }}</p>
+      {% endif %}
+      {% if r.remediation %}
+        <p class="small mb-2"><strong>Fix:</strong> {{ r.remediation }}</p>
+      {% endif %}
+      <details class="small">
+        <summary class="text-muted">Detection pattern</summary>
+        <pre class="bg-light p-2 mt-1 mb-0 text-break"><code>{{ r.pattern }}</code></pre>
+      </details>
+    </div>
+  </div>
+  {% endfor %}
+</section>
+{% endfor %}
+{% endblock %}

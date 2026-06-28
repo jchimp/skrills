@@ -16,38 +16,33 @@ logger = logging.getLogger(__name__)
 class GitleaksScanner(Scanner):
     name = "gitleaks"
 
-    def scan(self, content: str) -> ScannerResult:
+    def scan_text(self, content: str) -> ScannerResult:
+        with tempfile.TemporaryDirectory() as td:
+            src = Path(td) / "skill.md"
+            src.write_text(content, encoding="utf-8")
+            return self.scan_repo(Path(td))
+
+    def scan_repo(self, root: Path) -> ScannerResult:
         with self._timed() as t:
             if shutil.which("gitleaks") is None:
                 return ScannerResult(
-                    scanner=self.name,
-                    ok=False,
-                    error="gitleaks binary not on PATH",
+                    scanner=self.name, ok=False, error="gitleaks binary not on PATH"
                 )
-
-            findings: list[Finding] = []
             with tempfile.TemporaryDirectory() as td:
-                src = Path(td) / "skill.md"
-                src.write_text(content, encoding="utf-8")
                 report = Path(td) / "report.json"
                 try:
-                    proc = subprocess.run(
+                    subprocess.run(
                         [
-                            "gitleaks",
-                            "detect",
+                            "gitleaks", "detect",
                             "--no-git",
-                            "--source",
-                            str(src.parent),
-                            "--report-format",
-                            "json",
-                            "--report-path",
-                            str(report),
-                            "--exit-code",
-                            "0",
+                            "--source", str(root),
+                            "--report-format", "json",
+                            "--report-path", str(report),
+                            "--exit-code", "0",
                         ],
                         capture_output=True,
                         text=True,
-                        timeout=60,
+                        timeout=120,
                     )
                 except (subprocess.TimeoutExpired, FileNotFoundError):
                     logger.exception("gitleaks subprocess failed")
@@ -57,12 +52,18 @@ class GitleaksScanner(Scanner):
                         error="gitleaks failed to run; see server logs.",
                     )
 
+                findings: list[Finding] = []
                 if report.exists():
                     try:
                         data = json.loads(report.read_text() or "[]")
                     except json.JSONDecodeError:
                         data = []
                     for item in data:
+                        file_rel = item.get("File", "")
+                        try:
+                            file_rel = str(Path(file_rel).resolve().relative_to(root.resolve()))
+                        except (ValueError, OSError):
+                            pass
                         findings.append(
                             Finding(
                                 scanner=self.name,
@@ -71,22 +72,19 @@ class GitleaksScanner(Scanner):
                                 severity=Severity.CRITICAL,
                                 category="secret",
                                 description=(
-                                    f"A potential secret was detected in the skill content "
+                                    f"A potential secret was detected "
                                     f"(rule: {item.get('RuleID', 'unknown')})."
                                 ),
+                                file_path=file_rel or None,
                                 evidence=_redact(item.get("Match", "")),
                                 line=item.get("StartLine"),
                                 remediation=(
-                                    "Remove the secret from the skill content. Rotate any "
-                                    "exposed credentials immediately. Reference secrets via "
-                                    "environment variables or a vault instead of inlining them."
+                                    "Remove the secret. Rotate any exposed credentials. "
+                                    "Reference secrets via env vars or a vault."
                                 ),
                             )
                         )
-
-            res = ScannerResult(scanner=self.name, ok=True, findings=findings)
-        res.duration_ms = t.elapsed_ms
-        return res
+        return ScannerResult(scanner=self.name, ok=True, duration_ms=t.elapsed_ms, findings=findings)
 
 
 def _redact(s: str, keep: int = 4) -> str:

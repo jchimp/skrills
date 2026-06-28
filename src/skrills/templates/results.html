@@ -1,30 +1,33 @@
 {% extends "base.html" %}
+{% import "_macros.html" as macros %}
+{% set sev_badge = macros.sev_badge %}
 {% block title %}Skrills · Scan {{ scan.id }}{% endblock %}
 
-{% macro sev_badge(sev) -%}
-  {% set cls = {'critical':'text-bg-danger','high':'text-bg-warning','medium':'text-bg-info','low':'text-bg-secondary','info':'text-bg-light'}[sev] %}
-  <span class="badge {{ cls }} text-uppercase">{{ sev }}</span>
-{%- endmacro %}
-
 {% block content %}
-<div class="d-flex justify-content-between align-items-start mb-3">
+<div class="d-flex justify-content-between align-items-start mb-3 flex-wrap gap-2">
   <div>
-    <h4 class="mb-1">Scan results
-      <span class="font-monospace text-muted small">{{ scan.id }}</span>
+    <h4 class="mb-1">
+      Scan results <span class="font-monospace text-muted small">{{ scan.id }}</span>
+      {% if scan.ephemeral %}<span class="badge text-bg-dark ms-2">ephemeral</span>{% endif %}
     </h4>
     <div class="text-muted small">
-      {{ scan.created_at.strftime("%Y-%m-%d %H:%M UTC") }} ·
-      {{ scan.input_size }} bytes · hash <code>{{ scan.input_hash }}</code>
-      {% if scan.ephemeral %}· <span class="badge text-bg-dark">ephemeral</span>{% endif %}
+      <span class="badge text-bg-light">{{ scan.source_type.value }}</span>
+      <span class="ms-1">{{ scan.source_label }}</span>
+      · {{ scan.created_at.strftime("%Y-%m-%d %H:%M UTC") }}
+      · {{ scan.file_count }} file(s) · {{ scan.input_size }} bytes
+      · hash <code>{{ scan.input_hash }}</code>
     </div>
   </div>
-  <div>
-    <button type="button" class="btn btn-sm btn-outline-secondary" data-download
-            data-payload="{{ report_json_b64 }}" data-filename="skrills-{{ scan.id }}.json"
-            data-mime="application/json">JSON</button>
-    <button type="button" class="btn btn-sm btn-outline-secondary" data-download
-            data-payload="{{ report_html_b64 }}" data-filename="skrills-{{ scan.id }}.html"
-            data-mime="text/html">HTML</button>
+  <div class="d-flex gap-1">
+    {% if not scan.ephemeral %}
+      {% if scan.source_type.value in ("paste","git") %}
+        <form method="post" action="/scan/{{ scan.id }}/rescan" class="js-scan-form">
+          <button class="btn btn-sm btn-outline-warning">Re-scan</button>
+        </form>
+      {% endif %}
+      <a class="btn btn-sm btn-outline-secondary" href="/scan/{{ scan.id }}/report.json">JSON</a>
+      <a class="btn btn-sm btn-outline-secondary" href="/scan/{{ scan.id }}/report.html">HTML</a>
+    {% endif %}
     <a class="btn btn-sm btn-warning" href="/">New scan</a>
   </div>
 </div>
@@ -37,7 +40,7 @@
           {% if scan.score >= 80 %}text-success{% elif scan.score >= 50 %}text-warning{% else %}text-danger{% endif %}">
           {{ scan.score }}
         </div>
-        <div class="text-muted small">Safety score (100 = clean)</div>
+        <div class="text-muted small">Safety score</div>
       </div>
     </div>
   </div>
@@ -47,10 +50,7 @@
         <h6 class="text-muted mb-2">Severity breakdown</h6>
         <div class="d-flex flex-wrap gap-3">
           {% for sev in ['critical','high','medium','low','info'] %}
-            <div>
-              {{ sev_badge(sev) }}
-              <span class="ms-1 fw-semibold">{{ scan.severity_counts[sev] }}</span>
-            </div>
+            <div>{{ sev_badge(sev) }} <span class="ms-1 fw-semibold">{{ scan.severity_counts.get(sev, 0) }}</span></div>
           {% endfor %}
         </div>
         <hr>
@@ -70,53 +70,172 @@
   </div>
 </div>
 
-<div class="card shadow-sm mb-4">
-  <div class="card-body">
-    <h5 class="card-title">Findings</h5>
-    {% if scan.findings %}
-      <div class="table-responsive">
-        <table class="table table-sm align-middle">
-          <thead>
-            <tr>
-              <th style="width:90px">Severity</th>
-              <th>Title</th>
-              <th>Category</th>
-              <th>Rule</th>
-              <th>Line</th>
-            </tr>
-          </thead>
-          <tbody>
-            {% for f in scan.findings %}
-            <tr>
-              <td>{{ sev_badge(f.severity.value) }}</td>
-              <td>
-                <div class="fw-semibold">{{ f.title }}</div>
-                <div class="small text-muted">{{ f.description }}</div>
-                {% if f.evidence %}
-                  <pre class="bg-light p-2 mt-1 mb-0 small text-break"><code>{{ f.evidence }}</code></pre>
-                {% endif %}
-                {% if f.remediation %}
-                  <div class="small mt-1"><strong>Fix:</strong> {{ f.remediation }}</div>
-                {% endif %}
-              </td>
-              <td><span class="badge text-bg-light">{{ f.category }}</span></td>
-              <td><code class="small">{{ f.rule_id }}</code><br><span class="text-muted small">{{ f.scanner }}</span></td>
-              <td>{{ f.line or "—" }}</td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+<ul class="nav nav-tabs mb-3" id="resultTabs" role="tablist">
+  <li class="nav-item"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-findings">Findings</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-content">View scanned content</button></li>
+  <li class="nav-item"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-edu">Why it matters</button></li>
+</ul>
+
+<div class="tab-content">
+  <!-- FINDINGS TAB: file tree + per-file findings -->
+  <div class="tab-pane fade show active" id="tab-findings">
+    {% if scan.files|length > 1 %}
+      <div class="row g-3">
+        <div class="col-md-4">
+          <div class="card shadow-sm">
+            <div class="card-body p-2">
+              <div class="d-flex justify-content-between align-items-center mb-2 px-2">
+                <h6 class="text-muted small mb-0">File tree</h6>
+                <button id="filetree-sort" type="button"
+                        class="btn btn-sm btn-outline-secondary py-0 px-2"
+                        data-mode="alpha" title="Toggle sort order">A–Z</button>
+              </div>
+              <div class="file-tree small">
+                <a href="#" class="d-block px-2 py-1 file-link active" data-target="file-all">
+                  <strong>All findings</strong>
+                  <span class="badge text-bg-secondary float-end">{{ scan.findings|length }}</span>
+                </a>
+                {% set counts = {} %}
+                {% for f in scan.findings %}
+                  {% set _ = counts.update({f.file_path or "(no file)": counts.get(f.file_path or "(no file)", 0) + 1}) %}
+                {% endfor %}
+                {% for f in scan.files %}
+                  {% set c = counts.get(f.path, 0) %}
+                  <a href="#" class="d-block px-2 py-1 file-link text-truncate" data-target="file-{{ loop.index }}"
+                     data-path="{{ f.path }}" data-findings="{{ c }}" title="{{ f.path }}">
+                    {% if f.is_skill %}🧠{% elif f.is_text %}📄{% else %}📦{% endif %}
+                    {{ f.path }}
+                    {% if c > 0 %}<span class="badge text-bg-danger float-end">{{ c }}</span>{% endif %}
+                  </a>
+                {% endfor %}
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="col-md-8">
+          <div id="file-all" class="file-panel">
+            {{ _findings_table(scan.findings, sev_badge, catalog) }}
+          </div>
+          {% for f in scan.files %}
+            {% set entries = scan.findings | selectattr("file_path", "equalto", f.path) | list %}
+            <div id="file-{{ loop.index }}" class="file-panel d-none">
+              <div class="mb-2 small text-muted">{{ f.path }} · {{ f.size }} bytes</div>
+              {{ _findings_table(entries, sev_badge, catalog) }}
+            </div>
+          {% endfor %}
+        </div>
       </div>
     {% else %}
-      <p class="text-success mb-0">No findings. Skill looks clean against the configured scanners.</p>
+      {{ _findings_table(scan.findings, sev_badge, catalog) }}
     {% endif %}
+  </div>
+
+  <!-- CONTENT TAB -->
+  <div class="tab-pane fade" id="tab-content">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        {% if scan.stored_content %}
+          <h6 class="text-muted mb-2">Pasted skill content</h6>
+          <pre class="bg-light p-3 rounded small mb-0" style="max-height:500px;overflow:auto;"><code>{{ scan.stored_content }}</code></pre>
+        {% elif scan.files %}
+          <h6 class="text-muted mb-2">File inventory</h6>
+          <p class="small text-muted">
+            Repo contents are scratched after scanning. The inventory below shows what was scanned.
+            Use Re-scan to inspect again.
+          </p>
+          <div class="table-responsive">
+            <table class="table table-sm">
+              <thead><tr><th>Path</th><th>Size</th><th>Kind</th></tr></thead>
+              <tbody>
+                {% for f in scan.files %}
+                <tr>
+                  <td class="font-monospace small">{{ f.path }}</td>
+                  <td class="small">{{ f.size }}</td>
+                  <td>
+                    {% if f.is_skill %}<span class="badge text-bg-warning">skill</span>
+                    {% elif f.is_text %}<span class="badge text-bg-light">text</span>
+                    {% else %}<span class="badge text-bg-secondary">binary</span>{% endif %}
+                  </td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        {% else %}
+          <p class="text-muted mb-0">Content not retained (ephemeral or empty).</p>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- EDU TAB -->
+  <div class="tab-pane fade" id="tab-edu">
+    <div class="card shadow-sm">
+      <div class="card-body">
+        {% include "_edu.html" %}
+      </div>
+    </div>
   </div>
 </div>
 
-<div class="card shadow-sm">
-  <div class="card-body">
-    <h5 class="card-title">Why this matters — new security vectors for agents</h5>
-    {% include "_edu.html" %}
+{# Hidden popover bodies — one per catalog rule, referenced by id from the
+   rule_id triggers above. Rendered once to avoid per-finding duplication. #}
+<div class="d-none">
+  {% for rid, r in catalog.items() %}
+  <div id="pop-{{ rid }}">
+    <div class="mb-1">{{ sev_badge(r.severity) }} <span class="text-muted small">{{ r.category }}</span></div>
+    {% if r.description %}<p class="mb-2 small">{{ r.description }}</p>{% endif %}
+    {% if r.false_positives %}<p class="mb-2 small"><strong>⚠ False positives:</strong> {{ r.false_positives }}</p>{% endif %}
+    {% if r.remediation %}<p class="mb-2 small"><strong>Fix:</strong> {{ r.remediation }}</p>{% endif %}
+    <a class="small" href="/glossary#{{ rid }}">Full reference →</a>
   </div>
+  {% endfor %}
 </div>
 {% endblock %}
+
+{% macro _findings_table(findings, sev_badge, catalog) %}
+  {% if findings %}
+    <div class="table-responsive">
+      <table class="table table-sm align-middle">
+        <thead>
+          <tr>
+            <th style="width:90px">Severity</th>
+            <th>Title</th>
+            <th>File</th>
+            <th>Rule</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for f in findings %}
+          <tr>
+            <td>{{ sev_badge(f.severity.value) }}</td>
+            <td>
+              <div class="fw-semibold">{{ f.title }}</div>
+              <div class="small text-muted">{{ f.description }}</div>
+              {% if f.evidence %}<pre class="bg-light p-2 mt-1 mb-0 small text-break"><code>{{ f.evidence }}</code></pre>{% endif %}
+              {% if f.remediation %}<div class="small mt-1"><strong>Fix:</strong> {{ f.remediation }}</div>{% endif %}
+            </td>
+            <td class="small font-monospace">
+              {{ f.file_path or "—" }}{% if f.line %}:{{ f.line }}{% endif %}
+            </td>
+            <td>
+              {% if f.rule_id in catalog %}
+                <a tabindex="0" role="button" class="rule-pop text-decoration-none"
+                   data-bs-toggle="popover" data-bs-content-ref="pop-{{ f.rule_id }}"
+                   data-bs-title="{{ f.rule_id }}">
+                  <code class="small">{{ f.rule_id }}</code> <span class="small">ⓘ</span>
+                </a>
+              {% else %}
+                <code class="small">{{ f.rule_id }}</code>
+              {% endif %}
+              <br><span class="text-muted small">{{ f.scanner }}</span>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  {% else %}
+    <p class="text-success mb-0">No findings in this scope.</p>
+  {% endif %}
+{% endmacro %}

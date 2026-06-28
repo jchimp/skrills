@@ -1,5 +1,4 @@
 # Skrills heuristic rule pack — tool poisoning & excessive agency
-# Targets dangerous tool definitions/permissions inside agent skills.
 
 rules:
   - id: SK-TOOL-001
@@ -7,91 +6,107 @@ rules:
     severity: critical
     category: tool_poisoning
     pattern: "\\b(exec|eval|subprocess|os\\.system|shell_exec|child_process|Runtime\\.getRuntime|powershell|cmd\\.exe|/bin/sh|/bin/bash)\\b"
-    description: >
-      Skill references shell or arbitrary code execution. Strongly review.
-    remediation: >
-      Replace with narrowly-scoped, parameterized tools. Never let the model
-      pass arbitrary strings to a shell.
+    description: Skill references shell or arbitrary code execution.
+    remediation: Replace with narrowly-scoped, parameterized tools.
+    false_positives: >
+      Bare words like "eval", "exec", or "subprocess" appear in normal source
+      code, library APIs, and docs. The risk is exposing them as an agent tool,
+      not their mere presence — check how they're wired up.
 
   - id: SK-TOOL-002
     title: "Unrestricted file system access"
     severity: high
     category: excessive_agency
     pattern: "(read_file|write_file|delete_file|fs\\.(read|write|unlink))\\s*[:(]"
-    description: >
-      Tool that can read/write/delete files without an explicit allowlist.
+    description: Tool that can read/write/delete files without an explicit allowlist.
     remediation: Constrain to a specific directory and validate paths.
+    false_positives: >
+      `read_file`/`write_file` helpers are ubiquitous in ordinary code; the
+      finding flags the capability, not necessarily a vulnerability.
 
   - id: SK-TOOL-003
     title: "Outbound HTTP / network without allowlist"
     severity: high
     category: excessive_agency
     pattern: "\\b(fetch|requests\\.(get|post|put|delete)|http\\.(get|post)|urllib\\.request|axios\\.(get|post))\\b"
-    description: >
-      Skill defines unrestricted outbound network calls — potential SSRF and
-      data exfiltration vector.
+    description: Unrestricted outbound calls — SSRF and exfiltration vector.
     remediation: Use a host allowlist and explicit method/URL templates.
+    false_positives: >
+      Fires on any `fetch`/`requests`/`axios` call — normal in most codebases.
+      Real risk is only egress without an allowlist or to user-controlled URLs.
 
   - id: SK-TOOL-004
     title: "Database query tool without parameter binding"
     severity: high
     category: tool_poisoning
     pattern: "(execute|query|raw_sql|run_sql)\\s*\\(\\s*[\"']?\\s*(select|insert|update|delete|drop)"
-    description: >
-      Tool appears to accept raw SQL. High risk of SQL injection via prompt.
-    remediation: Use the query-planner pattern, parameterized statements, and
-      read-only credentials.
+    description: Tool appears to accept raw SQL. SQL injection risk via prompt.
+    remediation: Query-planner pattern, parameterized statements, read-only creds.
+    false_positives: >
+      ORM calls and already-parameterized queries can match the keyword shape.
+      The concern is string-built SQL fed from model output.
 
   - id: SK-TOOL-005
     title: "Credential or secret in skill manifest"
     severity: critical
     category: secret
     pattern: "(api[_-]?key|secret|password|token|bearer)\\s*[:=]\\s*[\"'][^\"']{8,}[\"']"
-    description: >
-      Inline credentials in skill content. Treat as compromised.
+    description: Inline credentials in skill content. Treat as compromised.
     remediation: Rotate immediately and move to env vars / vault.
+    false_positives: >
+      Placeholder/example values ("api_key = 'YOUR_KEY_HERE'") and test fixtures
+      trip this. Still verify — a real leaked secret looks the same.
 
   - id: SK-TOOL-006
     title: "Auto-approve / no-confirmation tool flag"
     severity: medium
     category: excessive_agency
     pattern: "\\b(auto[_-]?(approve|confirm|execute)|skip[_-]?confirmation|require_confirmation\\s*[:=]\\s*false)\\b"
-    description: >
-      Skill disables human-in-the-loop confirmation for tool calls.
-    remediation: Require confirmation for any state-changing or external action.
+    description: Skill disables human-in-the-loop confirmation.
+    remediation: Require confirmation for any state-changing action.
+    false_positives: >
+      Auto-approve flags are fine for read-only or idempotent actions; the risk
+      is only on state-changing or irreversible operations.
 
   - id: SK-TOOL-007
-    title: "Email/SMS sending tool"
+    title: "Email / SMS sending tool"
     severity: medium
     category: excessive_agency
     pattern: "\\b(send_email|smtp|sendmail|twilio|send_sms|outlook\\.send)\\b"
-    description: >
-      Outbound messaging — abuse vector for phishing or data exfil.
-    remediation: Constrain recipients to an allowlist; rate-limit; log all sends.
+    description: Outbound messaging — phishing or exfiltration vector.
+    remediation: Recipient allowlist, rate-limit, log all sends.
+    false_positives: >
+      Notification/alerting features legitimately send mail or SMS. The flag is
+      about the agent having unsupervised send capability.
 
   - id: SK-TOOL-008
     title: "Payment / financial action tool"
     severity: critical
     category: excessive_agency
     pattern: "\\b(charge_card|create_payment|transfer_funds|stripe\\.(charge|paymentintent)|paypal\\.payout)\\b"
-    description: >
-      Skill exposes financial transactions to the agent. Maximum caution.
-    remediation: Require strong out-of-band confirmation and strict amount caps.
+    description: Skill exposes financial transactions to the agent.
+    remediation: Strong out-of-band confirmation and strict amount caps.
+    false_positives: >
+      SDK imports or docs referencing payment APIs without the agent actually
+      being able to move money.
 
   - id: SK-TOOL-009
     title: "Long-lived / wildcard scope"
     severity: medium
     category: excessive_agency
     pattern: "(scope|permissions?)\\s*[:=]\\s*[\"']?(\\*|all|admin|root|full[_-]?access)"
-    description: >
-      Skill requests wildcard or admin scopes. Apply least-privilege.
+    description: Skill requests wildcard or admin scopes.
+    false_positives: >
+      Config examples or defaults that set `scope: all` for local/dev use rather
+      than a deployed grant.
 
   - id: SK-TOOL-010
     title: "Browser / RPA automation tool"
     severity: medium
     category: excessive_agency
     pattern: "\\b(playwright|puppeteer|selenium|browser_use|computer_use)\\b"
-    description: >
-      Skill drives a browser/desktop. Risk of credential capture and arbitrary
-      web actions.
+    description: Skill drives a browser/desktop — credential capture risk.
     remediation: Sandbox the browser session; never load real user profiles.
+    false_positives: >
+      Test suites and CI legitimately use Playwright/Selenium. Risk is an agent
+      driving a browser with access to real user sessions/profiles.
